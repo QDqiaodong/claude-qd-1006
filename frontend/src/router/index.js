@@ -6,6 +6,7 @@ import RawWaterView from '../views/RawWaterView.vue'
 import SedimentationTankView from '../views/SedimentationTankView.vue'
 import FilterView from '../views/FilterView.vue'
 import DosingView from '../views/DosingView.vue'
+import DisposalView from '../views/DisposalView.vue'
 
 const routes = [
   { path: '/', redirect: '/raw-water' },
@@ -13,6 +14,7 @@ const routes = [
   { path: '/sediment', name: 'sediment', component: SedimentationTankView },
   { path: '/filter', name: 'filter', component: FilterView },
   { path: '/dosing', name: 'dosing', component: DosingView },
+  { path: '/disposal', name: 'disposal', component: DisposalView },
   { path: '/:pathMatch(.*)*', redirect: '/raw-water' }
 ]
 

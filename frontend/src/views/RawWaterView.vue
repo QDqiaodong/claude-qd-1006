@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import api from '../api'
+import router from '../router'
 
 const props = defineProps({ role: String })
 
@@ -69,6 +70,11 @@ async function reclassify(row, target) {
   } catch (e) { error.value = e.message }
 }
 
+// 超标记录 → 跳转到处置闭环发起联动处置（携带记录 id 预选）
+function goDisposal(row) {
+  router.push({ path: '/disposal', query: { rawWaterId: row.id } })
+}
+
 onMounted(load)
 </script>
 
@@ -117,8 +123,10 @@ onMounted(load)
             <el-tag :type="row.status === '合格' ? 'success' : row.status === '预警' ? 'warning' : 'danger'">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="270" fixed="right">
           <template #default="{ row }">
+            <el-button v-if="row.status === '超标'" size="small" type="warning"
+              :disabled="!(role === '运行工' || role === '管理员')" @click="goDisposal(row)">发起处置</el-button>
             <el-button size="small" type="danger" plain :disabled="!canReclassify" @click="reclassify(row, '超标')">判超标</el-button>
             <el-button size="small" :disabled="!canReclassify" @click="reclassify(row, '合格')">复位合格</el-button>
           </template>

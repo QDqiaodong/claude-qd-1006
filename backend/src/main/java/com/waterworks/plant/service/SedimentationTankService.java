@@ -21,9 +21,11 @@ import com.waterworks.plant.repository.SedimentationTankRepository;
 public class SedimentationTankService {
 
     private final SedimentationTankRepository repository;
+    private final DisposalService disposalService;
 
-    public SedimentationTankService(SedimentationTankRepository repository) {
+    public SedimentationTankService(SedimentationTankRepository repository, DisposalService disposalService) {
         this.repository = repository;
+        this.disposalService = disposalService;
     }
 
     public List<SedimentationTank> list(String status) {
@@ -84,7 +86,7 @@ public class SedimentationTankService {
         return repository.save(tank);
     }
 
-    /** 运行 ↔ 清洗 流转 */
+    /** 运行 ↔ 清洗 流转；转入清洗时同事务把未解除处置单里的关联标为冲突 */
     @Transactional
     public SedimentationTank transfer(Long id, String target) {
         SedimentationTank tank = get(id);
@@ -95,6 +97,9 @@ public class SedimentationTankService {
             throw new BizException("不允许从「" + tank.getStatus() + "」转为「" + target + "」");
         }
         tank.setStatus(target);
-        return repository.save(tank);
+        SedimentationTank saved = repository.save(tank);
+        // 超标处置联动：设备离开「运行」，关联标冲突（恢复运行不自动消除）
+        disposalService.markEquipmentConflicts(Dict.EQUIP_TANK, id, target);
+        return saved;
     }
 }

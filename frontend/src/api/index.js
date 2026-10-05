@@ -48,5 +48,15 @@ export default {
   // ---------------- 加药 ----------------
   listDosings: (p) => call(http.get('/dosings', params(p))),
   createDosing: (d) => call(http.post('/dosings', d)),
-  updateDosing: (id, d) => call(http.put(`/dosings/${id}`, d))
+  updateDosing: (id, d) => call(http.put(`/dosings/${id}`, d)),
+
+  // ---------------- 超标处置闭环 ----------------
+  listDisposals: (p) => call(http.get('/disposals', params(p))),
+  getDisposal: (id) => call(http.get(`/disposals/${id}`)),
+  initiateDisposal: (d) => call(http.post('/disposals', d)),
+  startDisposal: (id, operator) => call(http.post(`/disposals/${id}/start`, { operator })),
+  resolveDisposal: (id, d) => call(http.post(`/disposals/${id}/resolve`, d)),
+  replaceDisposalEquip: (id, linkId, d) => call(http.post(`/disposals/${id}/equipments/${linkId}/replace`, d)),
+  excludeDisposalEquip: (id, linkId, d) => call(http.post(`/disposals/${id}/equipments/${linkId}/exclude`, d)),
+  registerDisposalDosing: (id, d) => call(http.post(`/disposals/${id}/dosings`, d))
 }

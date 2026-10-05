@@ -22,9 +22,11 @@ import com.waterworks.plant.repository.FilterRepository;
 public class FilterService {
 
     private final FilterRepository repository;
+    private final DisposalService disposalService;
 
-    public FilterService(FilterRepository repository) {
+    public FilterService(FilterRepository repository, DisposalService disposalService) {
         this.repository = repository;
+        this.disposalService = disposalService;
     }
 
     public List<Filter> list(String status, String type) {
@@ -87,7 +89,7 @@ public class FilterService {
         return repository.save(filter);
     }
 
-    /** 规则②：反洗置状态为「反洗」 */
+    /** 规则②：反洗置状态为「反洗」；同事务把未解除处置单里的关联标为冲突 */
     @Transactional
     public Filter backwash(Long id) {
         Filter filter = get(id);
@@ -95,7 +97,9 @@ public class FilterService {
             throw new BizException("只有「运行」中的滤池可以反洗，当前状态：" + filter.getStatus());
         }
         filter.setStatus("反洗");
-        return repository.save(filter);
+        Filter saved = repository.save(filter);
+        disposalService.markEquipmentConflicts(Dict.EQUIP_FILTER, id, "反洗");
+        return saved;
     }
 
     /** 反洗结束，转回「运行」 */
@@ -119,6 +123,9 @@ public class FilterService {
             throw new BizException("不允许从「" + filter.getStatus() + "」转为「" + target + "」");
         }
         filter.setStatus(target);
-        return repository.save(filter);
+        Filter saved = repository.save(filter);
+        // 超标处置联动：设备离开「运行」，关联标冲突（恢复运行不自动消除）
+        disposalService.markEquipmentConflicts(Dict.EQUIP_FILTER, id, target);
+        return saved;
     }
 }

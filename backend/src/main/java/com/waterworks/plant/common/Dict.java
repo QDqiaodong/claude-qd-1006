@@ -39,6 +39,33 @@ public final class Dict {
     // ---------------- 加药药剂 ----------------
     public static final List<String> CHEM_NAMES = List.of("聚合氯化铝", "次氯酸钠");
 
+    // ---------------- 超标处置：待处置 → 执行中 → 已解除 ----------------
+    public static final String DISPOSAL_PENDING = "待处置";
+    public static final String DISPOSAL_RUNNING = "执行中";
+    public static final String DISPOSAL_RESOLVED = "已解除";
+    public static final List<String> DISPOSAL_STATUSES =
+            List.of(DISPOSAL_PENDING, DISPOSAL_RUNNING, DISPOSAL_RESOLVED);
+
+    /** 未解除（占用水源唯一槽位）的处置状态 */
+    public static final List<String> DISPOSAL_ACTIVE = List.of(DISPOSAL_PENDING, DISPOSAL_RUNNING);
+
+    private static final Map<String, List<String>> DISPOSAL_NEXT = Map.of(
+            DISPOSAL_PENDING, List.of(DISPOSAL_RUNNING),
+            DISPOSAL_RUNNING, List.of(DISPOSAL_RESOLVED));
+
+    // ---------------- 处置-设备关联状态 ----------------
+    public static final String LINK_NORMAL = "正常";
+    public static final String LINK_CONFLICT = "冲突";
+    public static final String LINK_EXCLUDED = "已排除";
+    public static final String LINK_REPLACED = "已改选";
+
+    // ---------------- 处置关联设备类型 ----------------
+    public static final String EQUIP_TANK = "沉淀池";
+    public static final String EQUIP_FILTER = "滤池";
+
+    /** 设备处于「运行」时才可被处置单关联 */
+    public static final String EQUIP_RUNNING = "运行";
+
     // ---------------- 业务阈值（原水水质硬约束 + 软预警带） ----------------
     /** pH 下限 */
     public static final BigDecimal PH_MIN = BigDecimal.valueOf(6.5);
@@ -94,6 +121,11 @@ public final class Dict {
 
     public static boolean isValidChemName(String name) {
         return name != null && CHEM_NAMES.contains(name);
+    }
+
+    /** 处置单状态机：只允许 待处置 → 执行中 → 已解除 顺向流转 */
+    public static boolean canTransferDisposal(String from, String to) {
+        return DISPOSAL_NEXT.getOrDefault(from, List.of()).contains(to);
     }
 
     /**
