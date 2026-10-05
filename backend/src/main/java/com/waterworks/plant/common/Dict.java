@@ -39,6 +39,25 @@ public final class Dict {
     // ---------------- 加药药剂 ----------------
     public static final List<String> CHEM_NAMES = List.of("聚合氯化铝", "次氯酸钠");
 
+    // ---------------- 原水超标联动处置 ----------------
+    public static final String DISPOSAL_PENDING = "待处置";
+    public static final String DISPOSAL_EXECUTING = "执行中";
+    public static final String DISPOSAL_RELEASED = "已解除";
+    public static final List<String> DISPOSAL_STATUSES =
+            List.of(DISPOSAL_PENDING, DISPOSAL_EXECUTING, DISPOSAL_RELEASED);
+
+    public static final String EQUIPMENT_TANK = "沉淀池";
+    public static final String EQUIPMENT_FILTER = "滤池";
+    public static final List<String> DISPOSAL_EQUIPMENT_TYPES = List.of(EQUIPMENT_TANK, EQUIPMENT_FILTER);
+
+    public static final String LINK_PENDING = "待确认";
+    public static final String LINK_CONFIRMED = "已确认";
+    public static final String LINK_CONFLICT = "冲突待处理";
+    public static final String LINK_EXCLUDED = "已排除";
+    public static final String LINK_REPLACED = "已改选";
+    public static final List<String> DISPOSAL_LINK_STATUSES =
+            List.of(LINK_PENDING, LINK_CONFIRMED, LINK_CONFLICT, LINK_EXCLUDED, LINK_REPLACED);
+
     // ---------------- 业务阈值（原水水质硬约束 + 软预警带） ----------------
     /** pH 下限 */
     public static final BigDecimal PH_MIN = BigDecimal.valueOf(6.5);
@@ -94,6 +113,31 @@ public final class Dict {
 
     public static boolean isValidChemName(String name) {
         return name != null && CHEM_NAMES.contains(name);
+    }
+
+    public static boolean isValidDisposalStatus(String status) {
+        return status != null && DISPOSAL_STATUSES.contains(status);
+    }
+
+    public static boolean isActiveDisposalStatus(String status) {
+        return DISPOSAL_PENDING.equals(status) || DISPOSAL_EXECUTING.equals(status);
+    }
+
+    public static boolean isValidDisposalEquipmentType(String type) {
+        return type != null && DISPOSAL_EQUIPMENT_TYPES.contains(type);
+    }
+
+    public static boolean isActiveLinkStatus(String status) {
+        return LINK_PENDING.equals(status) || LINK_CONFIRMED.equals(status) || LINK_CONFLICT.equals(status);
+    }
+
+    public static boolean isResolvedLinkStatus(String status) {
+        return LINK_EXCLUDED.equals(status) || LINK_REPLACED.equals(status);
+    }
+
+    /** 只有仍在参与当前处置的“已确认”关联，才能作为进入执行 / 解除的有效工段。 */
+    public static boolean isEffectiveLinkStatus(String status) {
+        return LINK_CONFIRMED.equals(status);
     }
 
     /**

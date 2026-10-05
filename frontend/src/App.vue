@@ -7,6 +7,7 @@ import RawWaterView from './views/RawWaterView.vue'
 import SedimentationTankView from './views/SedimentationTankView.vue'
 import FilterView from './views/FilterView.vue'
 import DosingView from './views/DosingView.vue'
+import DisposalView from './views/DisposalView.vue'
 
 // ------------------------------------------------------------------
 // 导航形态：顶部「角色切换」（运行工 / 化验员 / 管理员），切换后主区展示
@@ -16,6 +17,7 @@ import DosingView from './views/DosingView.vue'
 
 const viewMap = {
   '/raw-water': RawWaterView,
+  '/disposal': DisposalView,
   '/sediment': SedimentationTankView,
   '/filter': FilterView,
   '/dosing': DosingView
@@ -23,6 +25,7 @@ const viewMap = {
 
 const tabs = [
   { path: '/raw-water', label: '原水监测', sub: '取水口 · 水质建档' },
+  { path: '/disposal', label: '超标联动', sub: '待处置 · 执行 · 解除' },
   { path: '/sediment', label: '沉淀池', sub: '沉淀 · 停留时间' },
   { path: '/filter', label: '滤池', sub: '砂滤 / 炭滤 · 反洗' },
   { path: '/dosing', label: '加药', sub: '聚合氯化铝 · 次氯酸钠' }
@@ -31,7 +34,7 @@ const tabs = [
 const roles = ['运行工', '化验员', '管理员']
 const currentRole = ref('运行工')
 const currentPath = ref(router.currentRoute.value.path)
-const counts = ref({ 'raw-water': 0, sediment: 0, filter: 0, dosing: 0 })
+const counts = ref({ 'raw-water': 0, disposal: 0, sediment: 0, filter: 0, dosing: 0 })
 
 const currentView = computed(() => viewMap[currentPath.value] || RawWaterView)
 
@@ -43,11 +46,12 @@ const roleDesc = computed(() => {
 
 async function loadCounts() {
   try {
-    const [r, s, f, d] = await Promise.all([
-      api.listRawWaters(), api.listTanks(), api.listFilters(), api.listDosings()
+    const [r, p, s, f, d] = await Promise.all([
+      api.listRawWaters(), api.listDisposals(), api.listTanks(), api.listFilters(), api.listDosings()
     ])
     counts.value = {
       'raw-water': (r || []).length,
+      disposal: (p || []).length,
       sediment: (s || []).length,
       filter: (f || []).length,
       dosing: (d || []).length

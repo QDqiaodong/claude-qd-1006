@@ -1,6 +1,10 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../api'
+import { getDutyOperator, setDutyOperator } from '../utils/operator'
+
+const router = useRouter()
 
 const props = defineProps({ role: String })
 
@@ -9,6 +13,13 @@ const error = ref('')
 const tip = ref('')
 const loading = ref(false)
 const statusFilter = ref('')
+const dutyOperator = ref(getDutyOperator())
+const startingId = ref(null)
+const tankRows = ref([])
+const filterRows = ref([])
+const disposalDialog = ref(false)
+const disposalRow = ref(null)
+const disposalForm = ref({ assignee: '', tankIds: [], filterIds: [] })
 
 const canCreate = computed(() => props.role === '化验员' || props.role === '管理员')
 const canReclassify = computed(() => props.role === '管理员')
@@ -69,6 +80,58 @@ async function reclassify(row, target) {
   } catch (e) { error.value = e.message }
 }
 
+function rememberOperator() {
+  setDutyOperator(dutyOperator.value.trim())
+  dutyOperator.value = getDutyOperator()
+}
+
+async function startDisposal(row) {
+  error.value = ''; tip.value = ''
+  rememberOperator()
+  try {
+    const [tanks, filters] = await Promise.all([api.listTanks({ status: '运行' }), api.listFilters({ status: '运行' })])
+    tankRows.value = tanks || []
+    filterRows.value = filters || []
+    disposalRow.value = row
+    disposalForm.value = { assignee: dutyOperator.value, tankIds: [], filterIds: [] }
+    disposalDialog.value = true
+  } catch (e) { error.value = e.message }
+}
+
+async function confirmStartDisposal() {
+  error.value = ''; tip.value = ''
+  disposalForm.value.assignee = disposalForm.value.assignee.trim()
+  if (!disposalForm.value.assignee) {
+    error.value = '请先填写发起处置的责任值班人员'
+    return
+  }
+  dutyOperator.value = disposalForm.value.assignee
+  rememberOperator()
+  startingId.value = disposalRow.value.id
+  try {
+    const disposal = await api.createDisposal({
+      rawWaterId: disposalRow.value.id,
+      assignee: disposalForm.value.assignee,
+      tankIds: disposalForm.value.tankIds,
+      filterIds: disposalForm.value.filterIds
+    })
+    tip.value = `已接管 ${disposalRow.value.sourceName} 的超标联动处置 #${disposal.id}`
+    disposalDialog.value = false
+    router.push({ path: '/disposal', query: { id: disposal.id } })
+  } catch (e) {
+    if (e.status === 409 && e.data?.disposalId) {
+      error.value = `${e.message}。页面将打开已接管处置单。`
+      disposalDialog.value = false
+      setTimeout(() => router.push({
+        path: '/disposal',
+        query: { id: e.data.disposalId, takeover: 1 }
+      }), 700)
+    } else {
+      error.value = e.message
+    }
+  } finally { startingId.value = null }
+}
+
 onMounted(load)
 </script>
 
@@ -94,6 +157,12 @@ onMounted(load)
         <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px" @change="load">
           <el-option v-for="s in statuses" :key="s" :label="s" :value="s" />
         </el-select>
+        <el-input
+          v-model="dutyOperator"
+          placeholder="值班人员姓名（并发接管留痕）"
+          style="width: 230px"
+          @change="rememberOperator"
+        />
         <span class="spacer"></span>
         <el-button type="primary" :disabled="!canCreate" @click="openCreate">
           {{ canCreate ? '新建取样' : '仅化验员/管理员可建档' }}
@@ -117,10 +186,17 @@ onMounted(load)
             <el-tag :type="row.status === '合格' ? 'success' : row.status === '预警' ? 'warning' : 'danger'">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="danger" plain :disabled="!canReclassify" @click="reclassify(row, '超标')">判超标</el-button>
             <el-button size="small" :disabled="!canReclassify" @click="reclassify(row, '合格')">复位合格</el-button>
+            <el-button
+              size="small"
+              type="warning"
+              :disabled="row.status !== '超标'"
+              :loading="startingId === row.id"
+              @click="startDisposal(row)"
+            >发起联动处置</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -144,6 +220,35 @@ onMounted(load)
       <template #footer>
         <el-button @click="dialog = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="save">建档</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="disposalDialog" title="发起原水超标联动处置" width="620px">
+      <div class="ok-tip">
+        发起后将锁定该水源的未解除处置；可先关联当前运行中的沉淀池和滤池，进入执行前仍可调整。
+      </div>
+      <el-form label-width="120px" class="dialog-form">
+        <el-form-item label="责任值班人员" class="full">
+          <el-input v-model="disposalForm.assignee" placeholder="并发发起时用于明确接管人" />
+        </el-form-item>
+        <el-form-item label="沉淀池" class="full">
+          <el-select v-model="disposalForm.tankIds" multiple collapse-tags style="width: 100%"
+            placeholder="仅可选择运行中的沉淀池">
+            <el-option v-for="t in tankRows" :key="t.id"
+              :label="`${t.tankCode}（${t.note || '运行'}）`" :value="t.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="滤池" class="full">
+          <el-select v-model="disposalForm.filterIds" multiple collapse-tags style="width: 100%"
+            placeholder="仅可选择运行中的滤池">
+            <el-option v-for="f in filterRows" :key="f.id"
+              :label="`${f.filterCode} / ${f.type}（${f.note || '运行'}）`" :value="f.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="disposalDialog = false">取消</el-button>
+        <el-button type="warning" :loading="startingId" @click="confirmStartDisposal">确认发起</el-button>
       </template>
     </el-dialog>
   </div>

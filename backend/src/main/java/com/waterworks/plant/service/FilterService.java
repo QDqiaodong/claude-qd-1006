@@ -22,9 +22,11 @@ import com.waterworks.plant.repository.FilterRepository;
 public class FilterService {
 
     private final FilterRepository repository;
+    private final DisposalService disposalService;
 
-    public FilterService(FilterRepository repository) {
+    public FilterService(FilterRepository repository, DisposalService disposalService) {
         this.repository = repository;
+        this.disposalService = disposalService;
     }
 
     public List<Filter> list(String status, String type) {
@@ -87,15 +89,18 @@ public class FilterService {
         return repository.save(filter);
     }
 
-    /** 规则②：反洗置状态为「反洗」 */
+    /** 规则②：反洗置状态为「反洗」，并把活动处置中的原关联标成冲突 */
     @Transactional
     public Filter backwash(Long id) {
-        Filter filter = get(id);
+        Filter filter = repository.findLockedById(id)
+                .orElseThrow(() -> new BizException("滤池不存在：" + id));
         if (!Dict.canTransferFilter(filter.getStatus(), "反洗")) {
             throw new BizException("只有「运行」中的滤池可以反洗，当前状态：" + filter.getStatus());
         }
         filter.setStatus("反洗");
-        return repository.save(filter);
+        Filter saved = repository.save(filter);
+        disposalService.markFilterConflict(saved, "反洗");
+        return saved;
     }
 
     /** 反洗结束，转回「运行」 */
@@ -111,7 +116,8 @@ public class FilterService {
 
     @Transactional
     public Filter transfer(Long id, String target) {
-        Filter filter = get(id);
+        Filter filter = repository.findLockedById(id)
+                .orElseThrow(() -> new BizException("滤池不存在：" + id));
         if (!Dict.isValidFilterStatus(target)) {
             throw new BizException("滤池状态不合法：" + target);
         }
@@ -119,6 +125,10 @@ public class FilterService {
             throw new BizException("不允许从「" + filter.getStatus() + "」转为「" + target + "」");
         }
         filter.setStatus(target);
-        return repository.save(filter);
+        Filter saved = repository.save(filter);
+        if (!"运行".equals(target)) {
+            disposalService.markFilterConflict(saved, target);
+        }
+        return saved;
     }
 }

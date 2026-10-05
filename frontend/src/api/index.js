@@ -5,8 +5,11 @@ const http = axios.create({ baseURL: '/api', timeout: 20000 })
 http.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error?.response?.data?.message || error?.message || '请求失败'
-    return Promise.reject(new Error(message))
+    const data = error?.response?.data
+    const err = new Error(data?.message || error?.message || '请求失败')
+    err.status = error?.response?.status
+    err.data = data?.data || null
+    return Promise.reject(err)
   }
 )
 
@@ -28,6 +31,24 @@ export default {
   updateRawWater: (id, d) => call(http.put(`/raw-waters/${id}`, d)),
   reclassifyRawWater: (id, status) =>
     call(http.post(`/raw-waters/${id}/reclassify`, null, params({ status }))),
+
+  // ---------------- 原水超标联动处置 ----------------
+  listDisposals: (p) => call(http.get('/raw-water-disposals', params(p))),
+  getDisposal: (id) => call(http.get(`/raw-water-disposals/${id}`)),
+  createDisposal: (d) => call(http.post('/raw-water-disposals', d)),
+  addDisposalEquipment: (id, d) => call(http.post(`/raw-water-disposals/${id}/equipment`, d)),
+  confirmDisposalEquipment: (id, linkId, d) =>
+    call(http.post(`/raw-water-disposals/${id}/equipment/${linkId}/confirm`, d)),
+  resolveDisposalConflict: (id, linkId, d) =>
+    call(http.post(`/raw-water-disposals/${id}/equipment/${linkId}/resolve-conflict`, d)),
+  removeDisposalEquipment: (id, linkId, d) =>
+    call(http.post(`/raw-water-disposals/${id}/equipment/${linkId}/remove`, d)),
+  startDisposal: (id, d) => call(http.post(`/raw-water-disposals/${id}/start`, d)),
+  releaseDisposal: (id, d) => call(http.post(`/raw-water-disposals/${id}/release`, d)),
+  refreshDisposalConflicts: (id, d) =>
+    call(http.post(`/raw-water-disposals/${id}/refresh-conflicts`, d)),
+  registerDisposalDosing: (id, d) =>
+    call(http.post(`/raw-water-disposals/${id}/dosings`, d)),
 
   // ---------------- 沉淀池 ----------------
   listTanks: (p) => call(http.get('/sedimentation-tanks', params(p))),

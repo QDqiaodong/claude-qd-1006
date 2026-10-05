@@ -49,4 +49,12 @@ public class Dosing {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    /** 所属原水超标联动处置；历史独立加药记录可为空 */
+    @Column(name = "disposal_id")
+    private Long disposalId;
+
+    /** 同一次加药动作的幂等键 */
+    @Column(name = "request_id", unique = true, length = 64)
+    private String requestId;
 }
